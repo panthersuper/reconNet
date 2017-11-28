@@ -94,7 +94,7 @@ class UpsampleConv3Layer(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None):
-        super(UpsampleConvLayer, self).__init__()
+        super(UpsampleConv3Layer, self).__init__()
         self.upsample = upsample
         if upsample:
             self.upsample_layer = nn.Upsample(scale_factor=upsample)

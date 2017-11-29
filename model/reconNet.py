@@ -1,11 +1,10 @@
 import torch.nn as nn
-import alexnet128.AlexNet as AlexNet
 
 class ReconNet(nn.Module):
 
     def __init__(self):
         super(ReconNet, self).__init__()
-        self.2dfeatures = nn.Sequential( # imput 113*113 image
+        self.features = nn.Sequential( # imput 113*113 image
             # encoding process
             nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm2d(64),
@@ -47,27 +46,15 @@ class ReconNet(nn.Module):
             nn.BatchNorm3d(512),
             nn.ReLU(inplace=True),
 
-            UpsampleConv3Layer(512, 256, kernel_size=3, stride=1, upsample=2), # 4*4*4
-            nn.InstanceNorm3d(256, affine=True),
-            nn.ReLU(inplace=True), 
-
-            UpsampleConv3Layer(256, 128, kernel_size=3, stride=1, upsample=2),  # 8*8*8
+            UpsampleConv3Layer(512, 128, kernel_size=3, stride=1, upsample=4),  # 8*8*8
             nn.InstanceNorm3d(128, affine=True),
             nn.ReLU(inplace=True), 
 
-            UpsampleConv3Layer(128, 64, kernel_size=3, stride=1, upsample=2),  # 16*16*16
-            nn.InstanceNorm3d(64, affine=True),
-            nn.ReLU(inplace=True), 
-
-            UpsampleConv3Layer(64, 32, kernel_size=3, stride=1, upsample=2),  # 32*32*32
+            UpsampleConv3Layer(128, 32, kernel_size=3, stride=1, upsample=4),  # 32*32*32
             nn.InstanceNorm3d(32, affine=True),
             nn.ReLU(inplace=True), 
 
-            UpsampleConv3Layer(32, 16, kernel_size=3, stride=1, upsample=2),  # 64*64*64
-            nn.InstanceNorm3d(16, affine=True),
-            nn.ReLU(inplace=True), 
-
-            UpsampleConv3Layer(16, 8, kernel_size=3, stride=1, upsample=2),  # 128*128*128
+            UpsampleConv3Layer(32, 8, kernel_size=3, stride=1, upsample=4),  # 128*128*128
             nn.InstanceNorm3d(8, affine=True),
             nn.ReLU(inplace=True), 
 
@@ -78,11 +65,11 @@ class ReconNet(nn.Module):
 
 
     def forward(self, x):
-        x = self.2dfeatures(x)
-        x = x.view(x.size(0), 256 * 6 * 6)
-        x = self.latentV(x) # latent vector, size:4096
-        x = x.view(x.size(0),512,2,2,2) # reshape to 2 by 2 by 2 cube with 512 channels
-        x = self.decoding(x) # convert to 3D voxel distribution
+        x = self.features(x.contiguous())
+        x = x.contiguous().view(x.size(0), 256 * 6 * 6)
+        x = self.latentV(x.contiguous())  # latent vector, size:4096
+        x = x.contiguous().view(x.size(0),512,2,2,2) # reshape to 2 by 2 by 2 cube with 512 channels
+        x = self.decoding(x.contiguous()) # convert to 3D voxel distribution
         return x
 
 
@@ -103,9 +90,9 @@ class UpsampleConv3Layer(nn.Module):
         self.conv3d = nn.Conv3d(in_channels, out_channels, kernel_size, stride)
 
     def forward(self, x):
-        x_in = x
+        x_in = x.contiguous()
         if self.upsample:
             x_in = self.upsample_layer(x_in)
-        out = self.reflection_pad(x_in)
-        out = self.conv3d(out)
+        out = self.reflection_pad(x_in.contiguous())
+        out = self.conv3d(out.contiguous())
         return out

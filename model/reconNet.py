@@ -43,35 +43,24 @@ class ReconNet(nn.Module):
             # decoding process
             # 2*2*2 de-conv3
 
-            # nn.BatchNorm3d(512),
-            # nn.ReLU(inplace=True),
+            nn.BatchNorm3d(512),
+            nn.ReLU(inplace=True),
 
-            # UpsampleConv3Layer(512, 128, kernel_size=3, stride=1, upsample=4),  # 8*8*8
-            # nn.InstanceNorm3d(128, affine=True),
-            # nn.ReLU(inplace=True), 
+            nn.ConvTranspose3d(512, 128, kernel_size=4, stride=4, padding=0), #8
+            nn.BatchNorm3d(128, affine=True),
+            nn.ReLU(inplace=True), 
 
-            # UpsampleConv3Layer(128, 32, kernel_size=3, stride=1, upsample=4),  # 32*32*32
-            # nn.InstanceNorm3d(32, affine=True),
-            # nn.ReLU(inplace=True), 
+            nn.ConvTranspose3d(128, 32, kernel_size=4, stride=4, padding=0), #32
+            nn.BatchNorm3d(32, affine=True),
+            nn.ReLU(inplace=True), 
 
-            # UpsampleConv3Layer(32, 8, kernel_size=3, stride=1, upsample=4),  # 128*128*128
-            # nn.InstanceNorm3d(8, affine=True),
-            # nn.ReLU(inplace=True), 
+            nn.ConvTranspose3d(32, 8, kernel_size=4, stride=4, padding=0), #128
+            nn.BatchNorm3d(8, affine=True),
+            nn.ReLU(inplace=True), 
 
-            # UpsampleConv3Layer(8, 1, kernel_size=3, stride=1, upsample=2),  # 256*256*256
-            # nn.InstanceNorm3d(1, affine=True),
-            # nn.ReLU(inplace=True), 
+            nn.ConvTranspose3d(8, 1, kernel_size=2, stride=2, padding=0), #256
+            nn.Tanh(),
 
-            # nn.Linear(4096, 3),
-            # nn.ReLU(inplace=True),
-            # nn.Linear(3, 16777216),
-
-            # UpsampleConv3Layer(8, 1, kernel_size=3, stride=1, upsample=32),  # 256*256*256
-
-            # nn.Upsample(scale_factor=32),
-            nn.ConvTranspose3d(8, 1, kernel_size=32, stride=32, padding=0),
-            # nn.InstanceNorm3d(1, affine=True),
-            # nn.ReLU(inplace=True), 
         )
 
 
@@ -79,7 +68,7 @@ class ReconNet(nn.Module):
         x = self.features(x)
         x = x.view(x.size(0), 256 * 6 * 6)
         x = self.latentV(x)  # latent vector, size:4096
-        x = x.view(x.size(0),8,8,8,8) # reshape to 2 by 2 by 2 cube with 512 channels
+        x = x.view(x.size(0),512,2,2,2) # reshape to 2 by 2 by 2 cube with 512 channels
         x = self.decoding(x) # convert to 3D voxel distribution
 
         return x

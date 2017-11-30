@@ -13,7 +13,7 @@ import torch.optim.lr_scheduler as s
 load_size =128
 fine_size = 113
 data_mean = np.asarray([0,0,0,0])
-batch_size = 2
+batch_size = 3
 voxel_size = 256
 
 # Training Parameters
@@ -120,7 +120,6 @@ for epoch in range(training_epoches):
         output = net(inputs) # places output
 
         loss = criterion(output, labels).contiguous()
-        print(loss)
         loss.backward()
         optimizer.step()
 
@@ -138,13 +137,13 @@ for epoch in range(training_epoches):
     if epoch % step_save == 1:
        torch.save(net.state_dict(), './' + path_save + '/Epoch'+str(epoch+starting_num))
 
-    net.eval()
-    with open('./' + path_save + '/log.txt', 'a') as f:
-        accs = get_accuracy(loader_train, 10000, net)
-        f.write("Epoch: %d Training set: Top-1 %.3f Top-5 %.3f\n" %(epoch + starting_num, accs[0], accs[1]))
-        print("Epoch:", epoch + starting_num, "Training set: Top-1", accs[0], "Top-5", accs[1])
-        accs = get_accuracy(loader_val, 10000, net)
-        print("Epoch:", epoch + starting_num, "Validation set: Top-1",accs[0], "Top-5", accs[1])
-        f.write("Epoch: %d Validation set: Top-1 %.3f Top-5 %.3f\n" %(epoch + starting_num, accs[0], accs[1]))
+    # net.eval()
+    # with open('./' + path_save + '/log.txt', 'a') as f:
+    #     accs = get_accuracy(loader_train, 10000, net)
+    #     f.write("Epoch: %d Training set: Top-1 %.3f Top-5 %.3f\n" %(epoch + starting_num, accs[0], accs[1]))
+    #     print("Epoch:", epoch + starting_num, "Training set: Top-1", accs[0], "Top-5", accs[1])
+    #     accs = get_accuracy(loader_val, 10000, net)
+    #     print("Epoch:", epoch + starting_num, "Validation set: Top-1",accs[0], "Top-5", accs[1])
+    #     f.write("Epoch: %d Validation set: Top-1 %.3f Top-5 %.3f\n" %(epoch + starting_num, accs[0], accs[1]))
 
 print('Finished Training')

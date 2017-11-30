@@ -119,7 +119,7 @@ for epoch in range(training_epoches):
         # forward + backward + optimize
         output = net(inputs) # places output
 
-        loss = criterion(output, labels)
+        loss = criterion(output, labels).contiguous()
         print(loss)
         loss.backward()
         optimizer.step()

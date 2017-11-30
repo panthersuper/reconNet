@@ -43,33 +43,45 @@ class ReconNet(nn.Module):
             # decoding process
             # 2*2*2 de-conv3
 
-            nn.BatchNorm3d(512),
-            nn.ReLU(inplace=True),
+            # nn.BatchNorm3d(512),
+            # nn.ReLU(inplace=True),
 
-            UpsampleConv3Layer(512, 128, kernel_size=3, stride=1, upsample=4),  # 8*8*8
-            nn.InstanceNorm3d(128, affine=True),
-            nn.ReLU(inplace=True), 
+            # UpsampleConv3Layer(512, 128, kernel_size=3, stride=1, upsample=4),  # 8*8*8
+            # nn.InstanceNorm3d(128, affine=True),
+            # nn.ReLU(inplace=True), 
 
-            UpsampleConv3Layer(128, 32, kernel_size=3, stride=1, upsample=4),  # 32*32*32
-            nn.InstanceNorm3d(32, affine=True),
-            nn.ReLU(inplace=True), 
+            # UpsampleConv3Layer(128, 32, kernel_size=3, stride=1, upsample=4),  # 32*32*32
+            # nn.InstanceNorm3d(32, affine=True),
+            # nn.ReLU(inplace=True), 
 
-            UpsampleConv3Layer(32, 8, kernel_size=3, stride=1, upsample=4),  # 128*128*128
-            nn.InstanceNorm3d(8, affine=True),
-            nn.ReLU(inplace=True), 
+            # UpsampleConv3Layer(32, 8, kernel_size=3, stride=1, upsample=4),  # 128*128*128
+            # nn.InstanceNorm3d(8, affine=True),
+            # nn.ReLU(inplace=True), 
 
-            UpsampleConv3Layer(8, 1, kernel_size=3, stride=1, upsample=2),  # 256*256*256
-            nn.InstanceNorm3d(1, affine=True),
-            nn.ReLU(inplace=True), 
+            # UpsampleConv3Layer(8, 1, kernel_size=3, stride=1, upsample=2),  # 256*256*256
+            # nn.InstanceNorm3d(1, affine=True),
+            # nn.ReLU(inplace=True), 
+
+            # nn.Linear(4096, 3),
+            # nn.ReLU(inplace=True),
+            # nn.Linear(3, 16777216),
+
+            # UpsampleConv3Layer(8, 1, kernel_size=3, stride=1, upsample=32),  # 256*256*256
+
+            # nn.Upsample(scale_factor=32),
+            nn.ConvTranspose3d(8, 1, kernel_size=32, stride=32, padding=0),
+            # nn.InstanceNorm3d(1, affine=True),
+            # nn.ReLU(inplace=True), 
         )
 
 
     def forward(self, x):
-        x = self.features(x.contiguous())
-        x = x.contiguous().view(x.size(0), 256 * 6 * 6)
-        x = self.latentV(x.contiguous())  # latent vector, size:4096
-        x = x.contiguous().view(x.size(0),512,2,2,2) # reshape to 2 by 2 by 2 cube with 512 channels
-        x = self.decoding(x.contiguous()) # convert to 3D voxel distribution
+        x = self.features(x)
+        x = x.view(x.size(0), 256 * 6 * 6)
+        x = self.latentV(x)  # latent vector, size:4096
+        x = x.view(x.size(0),8,8,8,8) # reshape to 2 by 2 by 2 cube with 512 channels
+        x = self.decoding(x) # convert to 3D voxel distribution
+
         return x
 
 
@@ -84,7 +96,7 @@ class UpsampleConv3Layer(nn.Module):
         super(UpsampleConv3Layer, self).__init__()
         self.upsample = upsample
         if upsample:
-            self.upsample_layer = nn.Upsample(scale_factor=upsample)
+            self.upsample_layer = nn._functions.thnn.UpsamplingNearest3d(scale_factor=upsample)
         reflection_padding = kernel_size // 2
         self.reflection_pad = nn.ReplicationPad3d(reflection_padding) #may modify to ReflectionPad
         self.conv3d = nn.Conv3d(in_channels, out_channels, kernel_size, stride)
@@ -92,7 +104,8 @@ class UpsampleConv3Layer(nn.Module):
     def forward(self, x):
         x_in = x.contiguous()
         if self.upsample:
-            x_in = self.upsample_layer(x_in)
+            x_in = nn._functions.thnn.UpsamplingNearest3d.apply(x_in, [256,256,256], self.upsample)
+
         out = self.reflection_pad(x_in.contiguous())
-        out = self.conv3d(out.contiguous())
+        out = self.conv3d(out)
         return out

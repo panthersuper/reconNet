@@ -10,14 +10,14 @@ import torch.optim.lr_scheduler as s
 
 
 # Dataset Parameters
-load_size =128
-fine_size = 113
+load_size =256
+fine_size = 224
 data_mean = np.asarray([0,0,0,0])
-batch_size = 3
+batch_size = 8
 voxel_size = 256
 
 # Training Parameters
-learning_rate = 0.01
+learning_rate = 0.1
 training_epoches = 10
 step_display = 100
 step_save = 2
@@ -112,6 +112,7 @@ for epoch in range(training_epoches):
         # wrap them in Variable
         # inputs, labels = Variable(inputs), Variable(labels)
         inputs, labels= Variable(inputs.cuda()), Variable(labels.cuda())
+
 
         # zero the parameter gradients
         optimizer.zero_grad()

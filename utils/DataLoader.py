@@ -19,6 +19,7 @@ class DataLoaderDisk(object):
         self.img_root = os.path.join(kwargs['img_root'])
         self.voxel_root = kwargs['voxel_root']
         self.voxel_size = kwargs['voxel_size']
+        self.down_sample_scale = kwargs['down_sample_scale']
 
         # 'img_root': '../data/train_imgs/',   # MODIFY PATH ACCORDINGLY
         # 'voxel_root': '../data/train_voxels/',   # MODIFY PATH ACCORDINGLY
@@ -61,8 +62,10 @@ class DataLoaderDisk(object):
         self._idx = 0
 
     def next_batch(self, batch_size):
-        images_batch = np.zeros((batch_size, self.fine_size, self.fine_size, 3))
-        labels_batch = np.zeros((batch_size, self.voxel_size, self.voxel_size, self.voxel_size))
+        images_batch = np.zeros((batch_size, self.fine_size, self.fine_size, 4))
+        labels_batch = np.zeros((batch_size, self.voxel_size//self.down_sample_scale, self.voxel_size//self.down_sample_scale, self.voxel_size//self.down_sample_scale))
+        dirs = []
+        
         for i in range(batch_size):
             image = scipy.misc.imread(self.list_im[self._idx])
             image = scipy.misc.imresize(image, (self.load_size, self.load_size))
@@ -80,8 +83,15 @@ class DataLoaderDisk(object):
 
             voxels = spio.loadmat(self.list_vol[self._idx], squeeze_me=True)["input"]
             voxels = np.asarray(voxels)
-            images_batch[i, ...] = image[offset_h:offset_h+self.fine_size, offset_w:offset_w+self.fine_size, :3]
-            labels_batch[i, ...] = voxels
+
+            # nvoxel = np.sum(np.reshape(voxels,(-1,256*256*256)))
+
+            # print(nvoxel)
+            # voxels = voxels/nvoxel*1000000
+            dirs.append(self.list_vol[self._idx])
+
+            images_batch[i, ...] = image[offset_h:offset_h+self.fine_size, offset_w:offset_w+self.fine_size, :]
+            labels_batch[i, ...] = voxels[::self.down_sample_scale,::self.down_sample_scale,::self.down_sample_scale] # downsampling
 
             self._idx += 1
             if self._idx == self.num:

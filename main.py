@@ -12,14 +12,14 @@ import torch.optim.lr_scheduler as s
 # Dataset Parameters
 load_size =256
 fine_size = 224
-data_mean = np.asarray([0,0,0,0])
-batch_size = 8
+data_mean = np.asarray([0.3,0.3,0.3,0])
+batch_size = 120
 voxel_size = 256
 
 # Training Parameters
-learning_rate = 0.1
+learning_rate = 0.01
 training_epoches = 10
-step_display = 100
+step_display = 10
 step_save = 2
 path_save = 'recon0'
 start_from = ''#'./alexnet64/Epoch28'
@@ -34,7 +34,9 @@ opt_data_train = {
     'fine_size': fine_size,
     'voxel_size': voxel_size,
     'data_mean': data_mean,
-    'randomize': True
+    'randomize': True,
+    'down_sample_scale':8
+
     }
 opt_data_val = {
     'img_root': 'data/train_imgs/',   # MODIFY PATH ACCORDINGLY
@@ -43,7 +45,9 @@ opt_data_val = {
     'fine_size': fine_size,
     'voxel_size': voxel_size,
     'data_mean': data_mean,
-    'randomize': True
+    'randomize': True,
+    'down_sample_scale':8
+
     }
 
 def get_accuracy(loader, size, net):
@@ -69,7 +73,7 @@ def get_accuracy(loader, size, net):
 
 def weights_init(m):
     classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    if classname.find('Conv2') != -1:
         nn.init.kaiming_uniform(m.weight.data)
 
 loader_train = DataLoaderDisk(**opt_data_train)
@@ -80,12 +84,14 @@ net = net.cuda()
 if start_from != '':
     net.load_state_dict(torch.load(start_from))
 else:
-    pass #net.apply(weights_init)
+    net.apply(weights_init)
 
-criterion = nn.MSELoss().cuda()
+# criterion = nn.MSELoss().cuda()
+criterion = nn.NLLLoss().cuda()
 
-optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=0.005) 
-scheduler = s.StepLR(optimizer, step_size=4, gamma=0.1)
+
+optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.8, weight_decay=0.005) 
+scheduler = s.StepLR(optimizer, step_size=3, gamma=0.1)
 
 running_loss = 0.0
 
@@ -107,7 +113,7 @@ for epoch in range(training_epoches):
         inputs = np.swapaxes(inputs,1,3)
         inputs = np.swapaxes(inputs,2,3)
         inputs = torch.from_numpy(inputs).float()
-        labels = torch.from_numpy(labels).float()
+        labels = torch.from_numpy(labels).long()
 
         # wrap them in Variable
         # inputs, labels = Variable(inputs), Variable(labels)
@@ -118,19 +124,23 @@ for epoch in range(training_epoches):
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        output = net(inputs) # places output
+        output = net(inputs).float().contiguous() # places output
 
-        loss = criterion(output, labels).contiguous()
+        output = output.view(batch_size*32*32*32,-1)
+        labels = labels.view(-1)
+
+        loss = criterion(output, labels)
+
         loss.backward()
         optimizer.step()
 
         # print statistics
         running_loss += loss.data[0]
         if i % step_display == step_display - 1:    # print every 100 mini-batches
-            print('PLACES TRAINING Epoch: %d %d loss: %.3f' %
+            print('PLACES TRAINING Epoch: %d %d loss: %.10f' %
                   (epoch + starting_num, i + 1, running_loss/step_display))
             with open('./' + path_save + '/log.txt', 'a') as f:
-                f.write('PLACES TRAINING Epoch: %d %d loss: %.3f\n' %
+                f.write('PLACES TRAINING Epoch: %d %d loss: %.10f\n' %
                   (epoch + starting_num, i + 1, running_loss/step_display))
 
             running_loss = 0.0

@@ -5,6 +5,8 @@ sys.path.append('model/')
 
 from alexnet import alex_net
 import torch.nn.functional as F
+from torch.autograd import Variable
+import torch
 
 class ReconNet(nn.Module):
 
@@ -32,8 +34,8 @@ class ReconNet(nn.Module):
             nn.BatchNorm1d(4096),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.BatchNorm1d(4096),
+            nn.Linear(4096, 1024),
+            nn.BatchNorm1d(1024),
             nn.LeakyReLU(inplace=True), # latent vector, size:4096
         )
 
@@ -122,16 +124,19 @@ class ReconNet(nn.Module):
             # 4/4/4 de-conv3 -> 32*32*32
 
             nn.BatchNorm3d(64),
-            nn.LeakyReLU(inplace=True),
+            nn.ReLU(inplace=True),
 
+            nn.Conv3d(64,64,kernel_size=3, stride=1, padding=1),
             nn.ConvTranspose3d(64, 32, kernel_size=6, stride=2, padding=2), #8
             nn.BatchNorm3d(32, affine=True),
-            nn.LeakyReLU(inplace=True),
+            nn.ReLU(inplace=True),
 
+            nn.Conv3d(32,32,kernel_size=3, stride=1, padding=1),
             nn.ConvTranspose3d(32, 8, kernel_size=6, stride=2, padding=2), #16
             nn.BatchNorm3d(8, affine=True),
-            nn.LeakyReLU(inplace=True),
+            nn.ReLU(inplace=True),
 
+            nn.Conv3d(8,8,kernel_size=3, stride=1, padding=1),
             nn.ConvTranspose3d(8, 2, kernel_size=6, stride=2, padding=2), #32     60*2*32*32*32
             nn.Tanh(),
 
@@ -146,19 +151,50 @@ class ReconNet(nn.Module):
 
         # )
 
+        self.softmax = nn.Sequential(
+
+            nn.Softmax2d(),
+
+        )
+
+    
+
     def forward(self, x):
         x = self.features(x)
+        batch_size = x.size(0)
         x = x.view(x.size(0), 256 * 6 * 6)
         x = self.latentV(x)  # latent vector, size:4096
-        x = x.view(x.size(0),64,4,4,4) # reshape to 4/4/4 cube with 64 channels
-        x = self.decoding(x) # convert to 3D voxel distribution
 
-        # x = x.view(x.size(0),1,32,32,32)
-        x = x.view(x.size(0),2,32768) # 60*2*(32*32*32)
-        x = F.log_softmax(x) # 60*2*(32*32*32)
-        x = x.permute(0,2,1) # 60*(32*32*32)*2
-        # return x
-        return x#.max(0)[1] #flat
+        # x = x.view(x.size(0),64,4,4,4) # reshape to 4/4/4 cube with 64 channels
+
+        x = x.view(x.size(0), 128, 2, 2, 2)
+
+        x = F.max_unpool3d(x, Variable(torch.Tensor(x.size()).zero_().long().cuda()), kernel_size=2, stride=2)
+        deconv1 = nn.ConvTranspose3d(128, 128, 3, padding=1).cuda()
+        x = deconv1(x)
+        x = F.leaky_relu(x)
+
+        x = F.max_unpool3d(x, Variable(torch.Tensor(x.size()).zero_().long().cuda()), kernel_size=2, stride=2)
+        deconv1 = nn.ConvTranspose3d(128, 128, 3, padding=1).cuda()
+        x = deconv1(x)
+        x = F.leaky_relu(x)
+
+        x = F.max_unpool3d(x, Variable(torch.Tensor(x.size()).zero_().long().cuda()), kernel_size=2, stride=2)
+        deconv2 = nn.ConvTranspose3d(128, 64, 3, padding=1).cuda()
+        x = deconv2(x)
+        x = F.leaky_relu(x)
+
+        x = F.max_unpool3d(x, Variable(torch.Tensor(x.size()).zero_().long().cuda()), kernel_size=2, stride=2)
+        deconv3 = nn.ConvTranspose3d(64, 32, 3, padding=1).cuda()
+        x = deconv3(x)
+        x = F.leaky_relu(x)
+
+        deconv4 = nn.ConvTranspose3d(32, 2, 3, padding=1).cuda()
+        x = deconv4(x)
+
+        # x = self.decoding(x) # convert to 3D voxel distribution
+        x = x.view(batch_size,2,32,1024) # 60*2*32*1024  converted to 2d
+        return x
 
 class UpsampleConv3Layer(nn.Module):
     """UpsampleConvLayer
